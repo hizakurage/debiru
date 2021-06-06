@@ -8,16 +8,13 @@ import re
 import requests
 import urllib.parse
 
-from bs4 import BeautifulSoup as BS4  # type: ignore
 import click
-
-CHANNEL_URL = 'https://www.youtube.com/channel/UCjlmCrq4TP1I4xguOtJ-31w'
-
 
 # Reference implementation: https://github.com/twitterdev/Twitter-API-v2-sample-code/blob/master/Tweet-Lookup/get_tweets_with_bearer_token.py
 
 TWITTER_API_ENDPOINT = 'https://api.twitter.com/2/tweets/search/recent'
 TWITTER_ACCOUNT = 'debidebiru_sama'
+
 def create_twitter_url():
     queries = {'query': f'from:{TWITTER_ACCOUNT} -is:retweet', 'max_results': 10}
     url = TWITTER_API_ENDPOINT + '?' + urllib.parse.urlencode(queries, quote_via=urllib.parse.quote)
@@ -56,22 +53,15 @@ def decorate_word_balloon(message):
     decorated += '            +' + '-' * max_length * 2 + '\n'
     return decorated
 
-def fetch_youtube_video_url():
-    pass
 @click.command()
-@click.option('-t', '--tweet', help='Show the last debiru-sama tweet', is_flag=True)
-@click.option('-v', '--video', help='Show the last debigu-sama youtube video URL', is_flag=True)
 @click.option('--bearer-token', default=lambda: os.environ.get('TWITTER_BEARER_TOKEN', ''))
-def main(tweet, video, bearer_token):
+def main(bearer_token):
     if bearer_token is '':
         click.echo('[ERROR] Twitter Bearer Token is missing.', err=True)
         exit(1)
 
-    if tweet:
-        tweet = fetch_last_tweet(bearer_token)
-        click.echo(decorate_word_balloon(tweet))
-    if video:
-        pass
+    tweet = fetch_last_tweet(bearer_token)
+    click.echo(decorate_word_balloon(tweet))
 
 if __name__ == '__main__':
     main()
