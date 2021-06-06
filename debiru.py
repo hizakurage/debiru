@@ -2,51 +2,39 @@
 
 import argparse
 from datetime import date, datetime, timedelta
+import json
+import os
+import re
 import requests
 import urllib.parse
 
 from bs4 import BeautifulSoup as BS4  # type: ignore
-from selenium import webdriver  # type: ignore
-from selenium.webdriver.chrome.options import Options  # type: ignore
-from selenium.webdriver.common.by import By  # type: ignore
-from selenium.webdriver.support import expected_conditions as EC  # type: ignore
-from selenium.webdriver.support.ui import WebDriverWait  # type: ignore
+import click
 
-TWITTER_URL = 'https://twitter.com/search?'
-TWITTER_SEARCH_URL = 'https://twitter.com/search'
-TWITTER_ACCOUNT = 'debidebiru_sama'
 CHANNEL_URL = 'https://www.youtube.com/channel/UCjlmCrq4TP1I4xguOtJ-31w'
 
 
-def print_debiru_aa():
-    print("hoge")
+# Reference implementation: https://github.com/twitterdev/Twitter-API-v2-sample-code/blob/master/Tweet-Lookup/get_tweets_with_bearer_token.py
 
+TWITTER_API_ENDPOINT = 'https://api.twitter.com/2/tweets/search/recent'
+TWITTER_ACCOUNT = 'debidebiru_sama'
+def create_twitter_url():
+    queries = {'query': f'from:{TWITTER_ACCOUNT} -is:retweet', 'max_results': 10}
+    url = TWITTER_API_ENDPOINT + '?' + urllib.parse.urlencode(queries, quote_via=urllib.parse.quote)
+    return url
 
-def make_twitter_search_query():
-    """Make a URL encoded twitter search string"""
-    yesterday: str = (date.today() - timedelta(days=1)).strftime('%Y-%m-%d')
-    search_expression: str = f'from:{TWITTER_ACCOUNT} since:{yesterday}'
-    query = {'q': search_expression, 'f': 'live' }
-    return urllib.parse.urlencode(query, quote_via=urllib.parse.quote)
+def create_twitter_headers(bearer_token):
+    return {'Authorization': f'Bearer {bearer_token}'}
 
-def fetch_latest_tweet():
-    query_string: str = make_twitter_search_query()
-    url: str = f'{TWITTER_SEARCH_URL}?{query_string}'
-    options = Options()
-    options.headless = True
-    driver = webdriver.Chrome(options=options)
-    driver.get(url)
-
-    # https://self-development.info/selenium%E3%81%A7twitter%E3%82%92%E3%82%B9%E3%82%AF%E3%83%AC%E3%82%A4%E3%83%94%E3%83%B3%E3%82%B0%E3%81%99%E3%82%8B%E3%80%90python%E3%80%91/
-    WebDriverWait(driver, 15).until(EC.visibility_of_element_located((By.TAG_NAME, 'article')))
-
-    html = driver.page_source.encode('utf-8')
-    soup = BS4(html, 'html.parser')
-    tweet = soup.select_one('main section h1 ~ div article > div > div > div > div:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(2) span').text
-    return tweet
+def fetch_last_tweet(bearer_token: str) -> str:
+    res = requests.get(create_twitter_url(), headers=create_twitter_headers(bearer_token))
+    tweets = json.loads(res.content.decode('utf-8'))['data']
+    return sorted(tweets, key=lambda tweet: tweet['id'], reverse=True)[0]['text']
 
 def decorate_word_balloon(message):
     """
+    (sample)
+
       \^  ^/    +-----------------------        1st line
      <(@  @)>  <  6/6   23:00~                  2nd line
                 |
@@ -68,20 +56,22 @@ def decorate_word_balloon(message):
     decorated += '            +' + '-' * max_length * 2 + '\n'
     return decorated
 
-
-
 def fetch_youtube_video_url():
     pass
+@click.command()
+@click.option('-t', '--tweet', help='Show the last debiru-sama tweet', is_flag=True)
+@click.option('-v', '--video', help='Show the last debigu-sama youtube video URL', is_flag=True)
+@click.option('--bearer-token', default=lambda: os.environ.get('TWITTER_BEARER_TOKEN', ''))
+def main(tweet, video, bearer_token):
+    if bearer_token is '':
+        click.echo('[ERROR] Twitter Bearer Token is missing.', err=True)
+        exit(1)
 
-def main(args) -> None:
-    if args.tweet:
-        print(decorate_word_balloon(fetch_latest_tweet()))
-    if args.video:
+    if tweet:
+        tweet = fetch_last_tweet(bearer_token)
+        click.echo(decorate_word_balloon(tweet))
+    if video:
         pass
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
-    parser.add_argument('-t', '--tweet', help='Show the latest debiru tweet', action='store_true', default=False)
-    parser.add_argument('-v', '--video', help='Show the latest debiru youtube video URL', action='store_true', default=False)
-    args = parser.parse_args()
-    main(args)
+    main()
