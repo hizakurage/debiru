@@ -44,13 +44,13 @@ def decorate_word_balloon(message):
     lines = message.strip().splitlines()
     for line in lines:
         max_length = len(line) if max_length < len(line) else max_length
-    prefix = '  \^  ^/    ' + '+' + '-' * max_length * 2 + '\n' + ' <(@  @)>  <  '
+    prefix = '  \^  ^/    ' + '+' + '-' * int(max_length * 1.5) + '\n' + ' <(@  @)>  <  '
 
     decorated = prefix                  # 1st line
     decorated += (lines.pop(0) + '\n')  # 2nd line
     for line in lines:
         decorated += '            | ' + line + '\n'
-    decorated += '            +' + '-' * max_length * 2 + '\n'
+    decorated += '            +' + '-' * int(max_length * 1.5) + '\n'
     return decorated
 
 @click.command()
